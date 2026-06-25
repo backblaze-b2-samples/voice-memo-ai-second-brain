@@ -72,8 +72,9 @@ runtime/   FastAPI routes — calls service, never repo directly
 
 1. Dependencies flow downward only: `types` -> `config` -> `repo` -> `service` -> `runtime`
 2. No backward imports (e.g., service must not import from runtime)
-3. `boto3`/`botocore` and `httpx` imports are confined to `app/repo/` (verified by
-   `test_boto3_only_in_repo` and `test_httpx_only_in_repo`)
+3. Production `boto3`/`botocore` and `httpx` imports are confined to `app/repo/`
+   (tests are excluded; verified by `test_boto3_only_in_repo` and
+   `test_httpx_only_in_repo`)
 4. All boundary data uses Pydantic models (no raw dicts across layers)
 5. Each file stays under 300 lines
 
@@ -97,8 +98,9 @@ services/api/
 
 ## Boundary Invariants
 
-- **No external SDK leakage**: `boto3`/`botocore` and `httpx` imports are confined to
-  `app/repo/`. All other application files interact through repo-layer adapters.
+- **No external SDK leakage**: production `boto3`/`botocore` and `httpx` imports are
+  confined to `app/repo/`. All other application files interact through repo-layer
+  adapters; tests may import `httpx` for ASGI clients.
 - **No raw dicts at boundaries**: All data crossing layer boundaries uses typed Pydantic models.
 - **No mutable globals**: Configuration is read-only after init. No module-level mutable state shared between layers.
 - **Validated inputs**: All HTTP inputs validated by FastAPI/Pydantic. Memo keys validated against `^audio/[A-Za-z0-9_][A-Za-z0-9_./\-]*\.(wav|mp3|flac|ogg|m4a|aac|opus|webm)$` (case-insensitive) with explicit `..` / `//` rejection before any B2 call. The pattern accepts both the Upload pipeline's canonical `audio/<YYYY>/<MM>/<safe-filename>--<uuid>.<ext>` shape and externally-seeded audio.

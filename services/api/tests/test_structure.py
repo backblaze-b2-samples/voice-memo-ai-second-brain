@@ -34,7 +34,7 @@ def _get_python_files(directory: Path, excluded_dirs: set[str] | None = None) ->
 
 
 def _get_application_python_files(api_root: Path = API_ROOT) -> list[Path]:
-    """Get Python application files, excluding tests and tooling."""
+    """Get Python application files, excluding tests and local env/cache dirs."""
     return _get_python_files(api_root, excluded_dirs=NON_PRODUCTION_DIRS)
 
 
