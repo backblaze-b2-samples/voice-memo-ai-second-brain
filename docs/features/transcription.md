@@ -44,7 +44,7 @@ Turn each new memo into a structured transcript JSON in B2 by calling OpenAI Whi
 
 ## Verification
 - Manual: upload a short WAV/MP3, watch `transcripts/` populate.
-- Programmatic: `test_httpx_only_in_repo` ensures `httpx` stays in `repo/`.
+- Programmatic: `test_httpx_only_in_repo` ensures app-layer `httpx` imports stay in `repo/`.
 - Quick verify command: `pnpm check:structure && pnpm lint:api`
 
 ## Related Docs

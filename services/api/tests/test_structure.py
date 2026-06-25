@@ -3,7 +3,8 @@
 import ast
 from pathlib import Path
 
-APP_ROOT = Path(__file__).parent.parent / "app"
+API_ROOT = Path(__file__).parent.parent
+APP_ROOT = API_ROOT / "app"
 
 # Layer ordering: lower layers must not import from higher layers
 LAYER_ORDER = ["types", "config", "repo", "service", "runtime"]
@@ -17,7 +18,20 @@ for i, layer in enumerate(LAYER_ORDER):
 
 def _get_python_files(directory: Path) -> list[Path]:
     """Get all .py files in a directory recursively."""
-    return list(directory.rglob("*.py"))
+    return sorted(directory.rglob("*.py"))
+
+
+def _get_application_python_files(api_root: Path = API_ROOT) -> list[Path]:
+    """Get Python application files, excluding tests and tooling."""
+    files = []
+    main_file = api_root / "main.py"
+    if main_file.exists():
+        files.append(main_file)
+
+    app_root = api_root / "app"
+    if app_root.exists():
+        files.extend(_get_python_files(app_root))
+    return files
 
 
 def _get_imports(filepath: Path) -> list[str]:
@@ -47,20 +61,19 @@ def _layer_of_import(module: str) -> str | None:
     return None
 
 
-def _repo_only_import_violations(modules: tuple[str, ...], label: str) -> list[str]:
+def _repo_only_import_violations(
+    modules: tuple[str, ...], label: str, api_root: Path = API_ROOT
+) -> list[str]:
     """Find imports that must stay confined to app/repo/."""
     violations = []
-    for layer in LAYER_ORDER:
-        if layer == "repo":
+    repo_root = api_root / "app" / "repo"
+    for pyfile in _get_application_python_files(api_root):
+        if pyfile.is_relative_to(repo_root):
             continue
-        layer_dir = APP_ROOT / layer
-        if not layer_dir.exists():
-            continue
-        for pyfile in _get_python_files(layer_dir):
-            for imp in _get_imports(pyfile):
-                if any(imp == module or imp.startswith(f"{module}.") for module in modules):
-                    rel = pyfile.relative_to(APP_ROOT.parent)
-                    violations.append(f"{rel}: {label} imported outside repo/")
+        for imp in _get_imports(pyfile):
+            if any(imp == module or imp.startswith(f"{module}.") for module in modules):
+                rel = pyfile.relative_to(api_root)
+                violations.append(f"{rel}: {label} imported outside repo/")
     return violations
 
 
@@ -92,6 +105,23 @@ def test_httpx_only_in_repo():
     """Verify httpx is only imported in app/repo/."""
     violations = _repo_only_import_violations(("httpx",), "httpx")
     assert violations == [], "httpx boundary violations:\n" + "\n".join(violations)
+
+
+def test_repo_only_imports_scan_top_level_application_files(tmp_path: Path):
+    """Verify repo-only import checks include main.py and app/__init__.py."""
+    app_root = tmp_path / "app"
+    repo_root = app_root / "repo"
+    repo_root.mkdir(parents=True)
+    (tmp_path / "main.py").write_text("import httpx\n")
+    (app_root / "__init__.py").write_text("from httpx import AsyncClient\n")
+    (repo_root / "client.py").write_text("import httpx\n")
+
+    violations = _repo_only_import_violations(("httpx",), "httpx", api_root=tmp_path)
+
+    assert violations == [
+        "main.py: httpx imported outside repo/",
+        "app/__init__.py: httpx imported outside repo/",
+    ]
 
 
 def test_file_size_limits():

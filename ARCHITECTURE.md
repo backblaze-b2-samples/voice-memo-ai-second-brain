@@ -97,7 +97,8 @@ services/api/
 
 ## Boundary Invariants
 
-- **No external SDK leakage**: `boto3` and `httpx` (when used against external APIs) are only imported in `app/repo/`. All other layers interact through the repo interface.
+- **No external SDK leakage**: `boto3`/`botocore` and `httpx` imports are confined to
+  `app/repo/`. All other application files interact through repo-layer adapters.
 - **No raw dicts at boundaries**: All data crossing layer boundaries uses typed Pydantic models.
 - **No mutable globals**: Configuration is read-only after init. No module-level mutable state shared between layers.
 - **Validated inputs**: All HTTP inputs validated by FastAPI/Pydantic. Memo keys validated against `^audio/[A-Za-z0-9_][A-Za-z0-9_./\-]*\.(wav|mp3|flac|ogg|m4a|aac|opus|webm)$` (case-insensitive) with explicit `..` / `//` rejection before any B2 call. The pattern accepts both the Upload pipeline's canonical `audio/<YYYY>/<MM>/<safe-filename>--<uuid>.<ext>` shape and externally-seeded audio.

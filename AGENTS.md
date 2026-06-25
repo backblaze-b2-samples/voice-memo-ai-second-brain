@@ -56,7 +56,7 @@ infra/railway/                             Deployment config
 **Backend layering**: `types` -> `config` -> `repo` -> `service` -> `runtime`
 
 - No backward imports across layers
-- No `boto3` (or `httpx` to external APIs) outside `repo/`
+- No `boto3`, `botocore`, or `httpx` imports outside `repo/`
 - No business logic in route handlers (`runtime/`)
 - All external APIs wrapped in `repo/` adapters
 - All request/response data validated at boundary (Pydantic models)
