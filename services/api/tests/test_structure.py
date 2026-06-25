@@ -1,7 +1,10 @@
 """Structural tests that enforce layering rules and code quality invariants."""
 
 import ast
+import os
 from pathlib import Path
+
+import pytest
 
 API_ROOT = Path(__file__).parent.parent
 APP_ROOT = API_ROOT / "app"
@@ -15,23 +18,24 @@ for i, layer in enumerate(LAYER_ORDER):
     # Each layer cannot import from layers above it
     FORBIDDEN_IMPORTS[layer] = set(LAYER_ORDER[i + 1 :])
 
+NON_PRODUCTION_DIRS = {".venv", "__pycache__", "tests"}
 
-def _get_python_files(directory: Path) -> list[Path]:
+
+def _get_python_files(directory: Path, excluded_dirs: set[str] | None = None) -> list[Path]:
     """Get all .py files in a directory recursively."""
-    return sorted(directory.rglob("*.py"))
+    excluded_dirs = excluded_dirs or set()
+    files = []
+    for root, dirnames, filenames in os.walk(directory):
+        dirnames[:] = sorted(name for name in dirnames if name not in excluded_dirs)
+        for filename in sorted(filenames):
+            if filename.endswith(".py"):
+                files.append(Path(root) / filename)
+    return files
 
 
 def _get_application_python_files(api_root: Path = API_ROOT) -> list[Path]:
     """Get Python application files, excluding tests and tooling."""
-    files = []
-    main_file = api_root / "main.py"
-    if main_file.exists():
-        files.append(main_file)
-
-    app_root = api_root / "app"
-    if app_root.exists():
-        files.extend(_get_python_files(app_root))
-    return files
+    return _get_python_files(api_root, excluded_dirs=NON_PRODUCTION_DIRS)
 
 
 def _get_imports(filepath: Path) -> list[str]:
@@ -107,21 +111,30 @@ def test_httpx_only_in_repo():
     assert violations == [], "httpx boundary violations:\n" + "\n".join(violations)
 
 
-def test_repo_only_imports_scan_top_level_application_files(tmp_path: Path):
-    """Verify repo-only import checks include main.py and app/__init__.py."""
-    app_root = tmp_path / "app"
-    repo_root = app_root / "repo"
+@pytest.mark.parametrize(
+    ("relative_path", "expected_violation"),
+    [
+        ("main.py", "main.py: httpx imported outside repo/"),
+        ("worker.py", "worker.py: httpx imported outside repo/"),
+        ("app/__init__.py", "app/__init__.py: httpx imported outside repo/"),
+        ("app/runtime/startup.py", "app/runtime/startup.py: httpx imported outside repo/"),
+    ],
+)
+def test_repo_only_imports_scan_non_repo_application_files(
+    tmp_path: Path, relative_path: str, expected_violation: str
+):
+    """Verify repo-only import checks include non-repo production files."""
+    target = tmp_path / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("import httpx\n")
+
+    repo_root = tmp_path / "app" / "repo"
     repo_root.mkdir(parents=True)
-    (tmp_path / "main.py").write_text("import httpx\n")
-    (app_root / "__init__.py").write_text("from httpx import AsyncClient\n")
     (repo_root / "client.py").write_text("import httpx\n")
 
     violations = _repo_only_import_violations(("httpx",), "httpx", api_root=tmp_path)
 
-    assert violations == [
-        "main.py: httpx imported outside repo/",
-        "app/__init__.py: httpx imported outside repo/",
-    ]
+    assert violations == [expected_violation]
 
 
 def test_file_size_limits():

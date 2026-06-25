@@ -72,7 +72,7 @@ runtime/   FastAPI routes — calls service, never repo directly
 
 1. Dependencies flow downward only: `types` -> `config` -> `repo` -> `service` -> `runtime`
 2. No backward imports (e.g., service must not import from runtime)
-3. `boto3`/`botocore` and `httpx` only allowed in `repo/` layer (verified by
+3. `boto3`/`botocore` and `httpx` imports are confined to `app/repo/` (verified by
    `test_boto3_only_in_repo` and `test_httpx_only_in_repo`)
 4. All boundary data uses Pydantic models (no raw dicts across layers)
 5. Each file stays under 300 lines
