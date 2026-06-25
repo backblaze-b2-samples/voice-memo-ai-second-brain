@@ -56,7 +56,8 @@ infra/railway/                             Deployment config
 **Backend layering**: `types` -> `config` -> `repo` -> `service` -> `runtime`
 
 - No backward imports across layers
-- No `boto3` (or `httpx` to external APIs) outside `repo/`
+- No production `boto3`, `botocore`, or `httpx` imports outside `app/repo/`
+  (tests are excluded from this boundary)
 - No business logic in route handlers (`runtime/`)
 - All external APIs wrapped in `repo/` adapters
 - All request/response data validated at boundary (Pydantic models)
@@ -106,7 +107,8 @@ Memo keys are produced by the Upload pipeline at `audio/<YYYY>/<MM>/<safe-name>-
 | Rule | Enforced by |
 |------|-------------|
 | No backward imports | `tests/test_structure.py::test_no_backward_imports` |
-| No boto3 outside repo/ | `tests/test_structure.py::test_boto3_only_in_repo` |
+| No production boto3 outside app/repo/ | `tests/test_structure.py::test_boto3_only_in_repo` |
+| No production httpx outside app/repo/ | `tests/test_structure.py::test_httpx_only_in_repo` |
 | File size < 300 lines | `tests/test_structure.py::test_file_size_limits` |
 | All layers exist | `tests/test_structure.py::test_all_layers_exist` |
 | No bare print() | `ruff` rule T20 |
