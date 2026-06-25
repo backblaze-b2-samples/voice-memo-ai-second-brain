@@ -107,6 +107,7 @@ Memo keys are produced by the Upload pipeline at `audio/<YYYY>/<MM>/<safe-name>-
 |------|-------------|
 | No backward imports | `tests/test_structure.py::test_no_backward_imports` |
 | No boto3 outside repo/ | `tests/test_structure.py::test_boto3_only_in_repo` |
+| No httpx outside repo/ | `tests/test_structure.py::test_httpx_only_in_repo` |
 | File size < 300 lines | `tests/test_structure.py::test_file_size_limits` |
 | All layers exist | `tests/test_structure.py::test_all_layers_exist` |
 | No bare print() | `ruff` rule T20 |

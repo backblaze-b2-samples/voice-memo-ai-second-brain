@@ -47,6 +47,23 @@ def _layer_of_import(module: str) -> str | None:
     return None
 
 
+def _repo_only_import_violations(modules: tuple[str, ...], label: str) -> list[str]:
+    """Find imports that must stay confined to app/repo/."""
+    violations = []
+    for layer in LAYER_ORDER:
+        if layer == "repo":
+            continue
+        layer_dir = APP_ROOT / layer
+        if not layer_dir.exists():
+            continue
+        for pyfile in _get_python_files(layer_dir):
+            for imp in _get_imports(pyfile):
+                if any(imp == module or imp.startswith(f"{module}.") for module in modules):
+                    rel = pyfile.relative_to(APP_ROOT.parent)
+                    violations.append(f"{rel}: {label} imported outside repo/")
+    return violations
+
+
 def test_no_backward_imports():
     """Verify no layer imports from a higher layer."""
     violations = []
@@ -67,19 +84,14 @@ def test_no_backward_imports():
 
 def test_boto3_only_in_repo():
     """Verify boto3 is only imported in app/repo/."""
-    violations = []
-    for layer in LAYER_ORDER:
-        if layer == "repo":
-            continue
-        layer_dir = APP_ROOT / layer
-        if not layer_dir.exists():
-            continue
-        for pyfile in _get_python_files(layer_dir):
-            for imp in _get_imports(pyfile):
-                if imp == "boto3" or imp.startswith("boto3.") or imp == "botocore" or imp.startswith("botocore."):
-                    rel = pyfile.relative_to(APP_ROOT.parent)
-                    violations.append(f"{rel}: boto3/botocore imported outside repo/")
+    violations = _repo_only_import_violations(("boto3", "botocore"), "boto3/botocore")
     assert violations == [], "boto3 boundary violations:\n" + "\n".join(violations)
+
+
+def test_httpx_only_in_repo():
+    """Verify httpx is only imported in app/repo/."""
+    violations = _repo_only_import_violations(("httpx",), "httpx")
+    assert violations == [], "httpx boundary violations:\n" + "\n".join(violations)
 
 
 def test_file_size_limits():
